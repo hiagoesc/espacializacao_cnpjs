@@ -1,0 +1,227 @@
+# =====================================================================================
+# config.yaml — Espacialização de CNPJs (São José dos Campos)
+# Caminhos RELATIVOS à raiz do projeto (a pasta onde este arquivo está).
+# Parâmetros de método: mude aqui, não no código. Registre a mudança em docs/decisoes.md.
+# =====================================================================================
+
+projeto:
+  nome: espacializacao_cnpjs
+  descricao: Espacializar os CNPJs da Receita Federal de São José dos Campos (um ponto por CNPJ)
+  municipio_ibge7: "3549904"         # código IBGE de 7 dígitos (usado pelo cnefe)
+  cod_municipio_rf: "7099"           # código do município na Receita Federal (código próprio da Receita)
+  crs_metrico: "EPSG:31983"          # SIRGAS 2000 / UTM 23S (metros) - distâncias e áreas
+  crs_graus: "EPSG:4674"             # SIRGAS 2000 (graus) - lat/lon de saída (mesmo do cnefe e do GeoPackage)
+
+pastas:                              # padrão do manual; não mude sem motivo
+  brutos: 01_dados_brutos
+  editados: 02_dados_editados
+  backup: 02_dados_editados/_backup
+  processamento: 03_processamento
+  logs: 03_processamento/logs
+  entrega: 04_entrega
+
+# ------------------------------------------------------------------ dados brutos (só leitura)
+brutos:
+  receita_federal: 01_dados_brutos/receita_federal         # ESTABELE, EMPRECSV, SIMPLES e os arquivos de descrição de códigos (NATJUCSV, MOTICSV, PAISCSV, CNAECSV)
+  cnefe: 01_dados_brutos/cnefe                             # cnefe (IBGE, Censo 2022), recorte do município
+  cnae: 01_dados_brutos/cnae                               # CNAE_Subclasses_2_3_Estrutura_Detalhada.xlsx (IBGE)
+  sirf: 01_dados_brutos/sirf                               # um CSV por setor, exportados do SIRF
+  correios:                                                # base de CEPs do Brasil (2018)
+    arquivo: 01_dados_brutos/correios/TB_CEP_BR_2018.csv
+  cadastro_municipal:                                      # exportação do cadastro municipal (sem edição)
+    arquivo: 01_dados_brutos/cadastro_municipal/cadastro_v2.xlsx
+  lotes:                                                   # lotes exportados do banco pelo QGIS
+    arquivo: 01_dados_brutos/geosanja/lotes.gpkg
+    camada: lotes
+  limite_municipal:                                        # limite municipal exportado do banco pelo QGIS
+    arquivo: 01_dados_brutos/geosanja/limite_municipal.gpkg
+    camada: limite_municipal
+
+# ------------------------------------------------------------------ dados editados (prioridade sobre o bruto)
+editados:
+  geocoding_nominatim:                             # respostas do Nominatim (uma por linha); o 06 acrescenta as novas
+    arquivo: 02_dados_editados/geocoding_nominatim.jsonl
+    gerado_por: 06_geocoding_nominatim
+
+# ------------------------------------------------------------------ arquivos intermediários usados por etapas seguintes
+processamento:
+  # 01 (cache das bases da Receita)
+  df_estab: 03_processamento/01_carregar_receita/df_estab.parquet
+  df_empresas: 03_processamento/01_carregar_receita/df_empresas.parquet
+  df_simples: 03_processamento/01_carregar_receita/df_simples.parquet
+  # 02 (cache das bases públicas)
+  df_cnefe: 03_processamento/02_carregar_bases_publicas/df_cnefe.parquet
+  df_cnae: 03_processamento/02_carregar_bases_publicas/df_cnae.parquet
+  df_base_cep: 03_processamento/02_carregar_bases_publicas/df_base_cep.parquet
+  # 03 (cache das bases da Prefeitura)
+  df_sirf: 03_processamento/03_carregar_bases_prefeitura/df_sirf.parquet
+  df_lotes: 03_processamento/03_carregar_bases_prefeitura/df_lotes.parquet
+  df_lotes_descartados: 03_processamento/03_carregar_bases_prefeitura/df_lotes_descartados.parquet
+  df_limite: 03_processamento/03_carregar_bases_prefeitura/df_limite.parquet
+  df_cadastro: 03_processamento/03_carregar_bases_prefeitura/df_cadastro.parquet
+  # 04
+  ref_pref: 03_processamento/04_base_enderecos_prefeitura/ref_pref.parquet
+  sirf_vias: 03_processamento/04_base_enderecos_prefeitura/sirf_vias.parquet
+  # 05
+  espacial_05: 03_processamento/05_cascata_espacializacao/df_espacial.parquet
+  aux_estab: 03_processamento/05_cascata_espacializacao/aux_estab.parquet
+  ref_cnefe: 03_processamento/05_cascata_espacializacao/ref_cnefe.parquet
+  base_cep: 03_processamento/05_cascata_espacializacao/base_cep.parquet
+  ceps_nao_confiaveis: 03_processamento/05_cascata_espacializacao/ceps_nao_confiaveis.parquet
+  # 06
+  espacial_06: 03_processamento/06_geocoding_nominatim/df_espacial.parquet
+  # 07
+  espacial_07: 03_processamento/07_completar_e_ajustar_pontos/df_espacial.parquet
+  # 08
+  df_cnpj_espacial: 03_processamento/08_montar_base_final/df_cnpj_espacial.parquet
+
+# ------------------------------------------------------------------ produtos finais
+entrega:
+  gpkg:
+    arquivo: 04_entrega/cnpj_espacial.gpkg
+    camada: cnpj_espacial
+  xlsx: 04_entrega/cnpj_espacial.xlsx
+  monitor: 04_entrega/cnpjs_monitor.parquet                # copiar para o projeto monitor_negocios
+  monitor_meta: 04_entrega/cnpjs_monitor_meta.json
+  saldo: 04_entrega/aberturas_encerramentos_saldo.xlsx    # 10 (aberturas, encerramentos e saldo por mês e por ano)
+
+# ------------------------------------------------------------------ parâmetros (ver docs/decisoes.md)
+parametros:
+  cache:                             # 01 a 03 (cache das bases lidas, em 03_processamento)
+    forcar_reprocessar: []           # tabelas a reler mesmo com cache válido. Ex.: ["df_lotes"] ou ["todos"]
+    idade_maxima_dias: {}            # idade máxima do cache por tabela. Ex.: {df_cadastro: 30}
+    versao_logica:                   # aumente o número quando a lógica de leitura de uma tabela mudar
+      df_estab: 1
+      df_empresas: 1
+      df_simples: 1
+      df_cnefe: 1
+      df_cnae: 1
+      df_base_cep: 1
+      df_sirf: 1
+      df_lotes: 2                    # 2: lotes passaram a vir do GeoPackage (antes, do banco)
+      df_lotes_descartados: 2
+      df_limite: 2                   # 2: limite passou a vir do GeoPackage (antes, do banco)
+      df_cadastro: 1
+  leitura:
+    chunk: 500000                    # linhas lidas por vez nos CSVs grandes (se faltar memória, diminua)
+  receita:                           # 01 (os arquivos da Receita não têm linha de títulos)
+    separador: ";"
+    codificacao: latin-1
+    padrao_estab: "*.ESTABELE"
+    padrao_empresas: "*.EMPRECSV"
+    padrao_simples: "*SIMPLES*"
+    colunas_estab: [cnpj_basico, cnpj_ordem, cnpj_dv, matriz_filial, nome_fantasia, situacao_cadastral,
+                    data_situacao, motivo_situacao, cidade_exterior, pais, data_inicio_atividade, cnae_principal,
+                    cnae_secundaria, tipo_logradouro, logradouro, numero, complemento, bairro, cep, uf,
+                    cod_municipio_rf, ddd1, tel1, ddd2, tel2, ddd_fax, fax, email, situacao_especial,
+                    data_situacao_especial]
+    colunas_empresas: [cnpj_basico, razao_social, natureza_juridica, qualificacao_responsavel, capital_social,
+                       porte_empresa, ente_federativo_responsavel]
+    colunas_simples: [cnpj_basico, opcao_simples, data_opcao_simples, data_exclusao_simples, opcao_mei,
+                      data_opcao_mei, data_exclusao_mei]
+  descricoes_receita:                # 08 (arquivos código;descrição da Receita, sem linha de títulos)
+    separador: ";"
+    codificacoes: ["utf-8", "latin-1"]   # tenta nesta ordem; o log mostra qual valeu (confira os acentos)
+    natureza_juridica: {padrao: "*NATJUCSV", digitos: 4}
+    motivo_situacao: {padrao: "*MOTICSV", digitos: 2}
+    pais: {padrao: "*PAISCSV", digitos: 3}
+    cnae: {padrao: "*CNAECSV", digitos: 7}      # CNAE principal e secundária (mais preciso que a tabela do IBGE)
+  legendas_receita:                  # 08 (layout oficial da Receita; escrita igual à do Monitor de Negócios)
+    situacao_cadastral: {1: "Nula", 2: "Ativa", 3: "Suspensa", 4: "Inapta", 8: "Baixada"}
+    porte_empresa: {0: "Não informado", 1: "Microempresa", 3: "Empresa de pequeno porte", 5: "Demais"}
+    matriz_filial: {1: "Matriz", 2: "Filial"}
+    opcao_simples_mei: {"S": "Sim", "N": "Não"}   # campo em branco = "Outros" (texto abaixo)
+    texto_outros: "Outros"                        # registro do Simples com a opção em branco
+    texto_fora_do_layout: "(código fora do layout)"
+    situacao_baixada: 8              # código da situação cadastral que conta como encerramento
+  cnefe:                             # 02
+    separador: ";"
+    codificacao: utf-8
+  cnae:                              # 02 e 08
+    padrao: "CNAE_Subclasses*.xlsx"
+    aba: "Estrutura Det. CNAE Subclass2.3"
+    nao_informado: "8888888"         # código que a Receita usa quando a atividade não foi informada
+  correios:                          # 02
+    separador: ";"
+    codificacao: utf-8-sig
+    uf: SP
+    cidade: "São José dos Campos"
+  sirf:                              # 03 e 04
+    padrao: "*.csv"
+    separador: ";"
+    codificacao: cp1252              # na inspeção, o utf-8 falhou e o cp1252 funcionou
+    colunas_excluidas: ["Código Pessoa", "Nome", "CPF", "CNPJ"]   # dados pessoais: nunca carregados
+    col_inscricao: "Inscrição"
+    col_logradouro: "Logradouro"
+    col_numero: "Número Imóvel"
+    col_cep: "CEP"
+  lotes:                             # 03
+    coluna_inscricao: rotulo         # coluna com a inscrição imobiliária na camada de lotes
+  cadastro:                          # 03 (título da coluna na planilha -> nome usado no código)
+    aba: 0                           # 0 = primeira aba
+    colunas:
+      "Insc. Mun.": insc_mun
+      "CNPJ/CPF": cnpj_cpf
+      "Contribuinte": contribuinte
+      "Endereço": endereco
+      "Rua": rua
+      "Bairro": bairro
+      "CEP": cep
+      "Cidade": cidade
+      "CNAE principal": cnae_principal
+      "Descrição CNAE principal": descricao_cnae
+      "Estabelecido": estabelecido
+      "Tipo": tipo
+      "Reg. Tributário": reg_tributario
+    colunas_excluidas: [contribuinte]   # dados pessoais: nunca seguem adiante
+  cascata:                           # 05 a 07 (valores escolhidos na construção, ainda NÃO validados)
+    esp_concentrado: 50              # espalhamento (m) até o qual os pontos são "concentrados"
+    esp_espalhado: 200               # até aqui, "espalhados"; acima, "muito espalhados"
+    dist_bases_concordam: 50         # distância (m) para dizer que Prefeitura e cnefe apontam o mesmo lugar
+    esp_max_varios_ceps: 50          # espalhamento máximo para aceitar via + número que existe em vários CEPs
+    limiar_via_parecida: 0.80        # semelhança mínima (0 a 1) de nomes de via "parecidos" (passo 2)
+    nota_minima_fuzzy: 90            # passo 5: nota mínima (0 a 100) para aceitar
+    nota_media_fuzzy: 95             # passo 5: nota mínima para a confiança ser "média"
+    empate_max: 3                    # empate: segunda via mais parecida até este número de pontos abaixo
+    nota_minima_via_no_cep: 85       # passo 6: nota mínima para corrigir o nome da via no mesmo CEP
+    dif_media: 50                    # interpolação: diferença de números até a qual a confiança é "média"
+    dif_max: 200                     # interpolação: acima disso não se interpola
+    limite_um_vizinho: 200           # interpolação com um vizinho só: diferença máxima de números
+    extensao_via_max: 1000           # passo 8: extensão da via no CEP a partir da qual a confiança é "muito baixa"
+    min_cnpj_cep: 20                 # CEP não confiável: só avalia CEPs com pelo menos isso de CNPJs
+    max_concordancia: 0.40           # ... e concordância abaixo disso
+    min_nucleos_declarados: 15       # ... e pelo menos isso de nomes de via diferentes declarados
+    dist_max_vizinhos_via_inteira: 300   # passos 9 e 10: distância máxima (m) entre os dois vizinhos
+    nota_minima_nucleo: 90           # passo 10: nota mínima para aceitar um núcleo de nome parecido
+    esp_centro_cep_baixa: 300        # passos 11 e 12: espalhamento do CEP até o qual a confiança é "baixa"
+    esp_max_centro_cep: 500          # passos 11 e 12: espalhamento máximo do CEP
+    min_pontos_bairro: 5             # passo 14: mínimo de CNPJs já localizados no bairro
+    confiancas_boas: ["muito alta", "alta", "média"]   # passo 14: confianças que contam no centro do bairro
+    usar_centro_bairro: true         # passo 14 ligado/desligado
+    usar_centro_municipio: true      # passo 15 ligado/desligado
+  geocoding:                         # 06 (passo 13: OpenStreetMap / Nominatim)
+    ativo: true                      # false = não consulta (as respostas já guardadas continuam valendo)
+    url: "https://nominatim.openstreetmap.org/search"
+    user_agent: "espacializacao-cnpjs-sjc/1.0 (contato: hiagocardoso.arq@gmail.com)"   # exigência do Nominatim
+    intervalo_s: 1.1                 # segundos entre consultas (a política pede no máximo 1 por segundo)
+    max_consultas: 5000              # consultas novas por rodada (as que faltarem ficam para a próxima)
+    tempo_limite_s: 20
+    cidade: "São José dos Campos"
+    estado: "São Paulo"
+    pais: "Brasil"
+    nota_minima_via: 85              # nota mínima entre a rua devolvida e a da Receita
+    margem_graus: 0.02               # folga em volta da área da cidade
+  limite:                            # 07 (ajuste dos pontos ao limite municipal)
+    ajuste_dist_conferir_m: 1000     # todo ponto fora vai para o ponto mais próximo dentro do limite; acima desta distância fica marcado para conferir
+    ajuste_margem_m: 1               # o ponto movido fica esta distância para DENTRO do limite
+  saldo:                             # 10 (aberturas, encerramentos e saldo)
+    ano_inicial: null                # primeiro ano mostrado nas abas (null = desde o primeiro registro)
+  monitor:                           # 09 (Parquet do Monitor de Negócios)
+    rotulo_base_receita: "Receita Federal – 2026-11"
+    colunas_fora_do_monitor: [cnae_secundaria, cnae_secundaria_nome, pais_nome, email, ddd1, tel1, ddd2, tel2, ddd_fax, fax, pais, cidade_exterior,
+                              situacao_especial, data_situacao_especial, ente_federativo_responsavel,
+                              qualificacao_responsavel, motivo_sem_coord, cnpj_ordem, cnpj_dv]
+
+# ------------------------------------------------------------------ execução (executar_tudo.py)
+execucao:
+  ciclo: ["06", "07", "08", "09", "10"]    # etapas a rodar depois de uma nova rodada de geocoding

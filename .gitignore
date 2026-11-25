@@ -1,0 +1,38 @@
+# --- Dados e produtos: nunca vão para o Git ---
+# Pastas de dados: ignora o conteúdo, mas mantém o LEIAME.md (a pasta existe ao clonar)
+01_dados_brutos/*
+02_dados_editados/*
+03_processamento/*
+04_entrega/*
+!01_dados_brutos/LEIAME.md
+!02_dados_editados/LEIAME.md
+!03_processamento/LEIAME.md
+!04_entrega/LEIAME.md
+*.gpkg
+*.gpkg-wal
+*.gpkg-shm
+*.parquet
+*.xlsx
+*.xls
+*.csv
+*.qgz
+*.qgs
+*.zip
+*.7z
+*.COMT
+*.txt
+!requirements.txt
+
+# --- Python / Jupyter ---
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+
+# --- Segredos ---
+.env
+
+# --- IDE ---
+.idea/
+
+# arquivos de trava do Office (guardam o nome de quem abriu o arquivo)
+~$*
